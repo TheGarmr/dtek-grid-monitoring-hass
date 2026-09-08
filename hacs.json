@@ -1,0 +1,6 @@
+{
+  "name": "DTEK Grid Monitoring",
+  "hacs": "1.6.0",
+  "homeassistant": "2024.12.0",
+  "render_readme": true
+}

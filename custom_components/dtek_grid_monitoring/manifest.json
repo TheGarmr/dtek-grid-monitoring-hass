@@ -1,0 +1,12 @@
+{
+  "domain": "dtek_grid_monitoring",
+  "name": "DTEK Grid Monitoring",
+  "codeowners": ["@TheGarmr"],
+  "config_flow": true,
+  "documentation": "https://github.com/TheGarmr/dtek-grid-monitoring",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/TheGarmr/dtek-grid-monitoring/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
