@@ -1,0 +1,85 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DTEK Grid Monitoring",
+        "description": "Configure one DTEK address and the sensor that reports whether it has power. Monitoring starts automatically when that sensor switches to the outage state.",
+        "data": {
+          "name": "Name",
+          "base_url": "DTEK shutdowns page URL",
+          "city": "City",
+          "street": "Street",
+          "houses": "House number(s)",
+          "source_entity": "Power source sensor",
+          "power_off_state": "State meaning “no power”"
+        },
+        "data_description": {
+          "city": "As written on the DTEK site, e.g. “м. Одеса”.",
+          "street": "As written on the DTEK site, e.g. “вул. Пантелеймонівська”.",
+          "houses": "Comma-separated, e.g. “9” or “33А, 33/А”. The best match is chosen automatically.",
+          "source_entity": "When this entity changes to the state below, DTEK monitoring begins; when it leaves that state, monitoring ends.",
+          "power_off_state": "Usually “off” for a grid binary sensor."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not retrieve data from DTEK for this address. Check the URL, city and street spelling.",
+      "no_houses": "Enter at least one house number."
+    },
+    "abort": {
+      "already_configured": "This address and source sensor are already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling intervals",
+        "data": {
+          "initial_interval": "Interval while DTEK has no info (minutes)",
+          "interval": "Interval once DTEK has info (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "grid_power": {
+        "name": "Grid power"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Power status",
+        "state": {
+          "power_on": "Power on",
+          "outage_no_info": "No power (no data yet)",
+          "outage_with_info": "No power (DTEK data available)"
+        }
+      },
+      "reason": {
+        "name": "Outage reason"
+      },
+      "outage_kind": {
+        "name": "Outage type",
+        "state": {
+          "planned": "Planned maintenance",
+          "scheduled": "Scheduled",
+          "emergency": "Emergency",
+          "unknown": "Unknown"
+        }
+      },
+      "outage_start": {
+        "name": "Power lost at"
+      },
+      "expected_restore": {
+        "name": "Power back (expected)"
+      },
+      "dtek_updated": {
+        "name": "Updated on DTEK"
+      },
+      "last_checked": {
+        "name": "Last checked"
+      }
+    }
+  }
+}
