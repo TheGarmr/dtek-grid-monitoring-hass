@@ -18,6 +18,7 @@ CONF_INITIAL_INTERVAL: Final = "initial_interval"
 CONF_INTERVAL: Final = "interval"
 CONF_RELAY_ENTITY: Final = "relay_entity"
 CONF_RELAY_OFF_STATE: Final = "relay_off_state"
+CONF_SCHEDULE_MONITORING: Final = "schedule_monitoring"
 
 DEFAULT_BASE_URL: Final = "https://www.dtek-oem.com.ua/ua/shutdowns"
 DEFAULT_SOURCE_ENTITY: Final = "binary_sensor.deye_grid"
@@ -25,8 +26,10 @@ DEFAULT_POWER_OFF_STATE: Final = "off"
 DEFAULT_RELAY_OFF_STATE: Final = "off"
 DEFAULT_INITIAL_INTERVAL: Final = 2
 DEFAULT_INTERVAL: Final = 10
+DEFAULT_SCHEDULE_MONITORING: Final = False
 
 RELAY_GRACE_PERIOD: Final = timedelta(seconds=15)
+SCHEDULE_INTERVAL: Final = timedelta(minutes=15)
 
 DTEK_TIMEZONE: Final = "Europe/Kyiv"
 
@@ -65,3 +68,16 @@ EVENT_OUTAGE_STARTED: Final = f"{DOMAIN}_outage_started"
 EVENT_INFO_AVAILABLE: Final = f"{DOMAIN}_info_available"
 EVENT_RESTORE_RESCHEDULED: Final = f"{DOMAIN}_restore_rescheduled"
 EVENT_RESTORED: Final = f"{DOMAIN}_restored"
+EVENT_SCHEDULE_AVAILABLE: Final = f"{DOMAIN}_schedule_available"
+EVENT_SCHEDULE_CHANGED: Final = f"{DOMAIN}_schedule_changed"
+
+INTERVAL_TYPE_OUTAGE: Final = "outage"
+INTERVAL_TYPE_POSSIBLE: Final = "possible"
+
+SCHEDULE_STATE_SCHEDULED: Final = "scheduled"
+SCHEDULE_STATE_NO_OUTAGES: Final = "no_outages"
+SCHEDULE_STATE_NOT_PUBLISHED: Final = "not_published"
+
+SCHEDULE_DAY_TODAY: Final = "today"
+SCHEDULE_DAY_TOMORROW: Final = "tomorrow"
+SCHEDULE_DAY_LATER: Final = "later"

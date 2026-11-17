@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
@@ -21,11 +22,17 @@ from .const import EVENT_INFO_AVAILABLE
 from .const import EVENT_OUTAGE_STARTED
 from .const import EVENT_RESTORE_RESCHEDULED
 from .const import EVENT_RESTORED
+from .const import EVENT_SCHEDULE_AVAILABLE
+from .const import EVENT_SCHEDULE_CHANGED
 from .const import OUTAGE_KIND_EMERGENCY
 from .const import OUTAGE_KIND_PLANNED
 from .const import OUTAGE_KIND_SCHEDULED
 from .const import OUTAGE_KIND_UNKNOWN
 from .const import OUTAGE_TYPE_PLANNED
+from .const import SCHEDULE_DAY_LATER
+from .const import SCHEDULE_DAY_TODAY
+from .const import SCHEDULE_DAY_TOMORROW
+from .const import SCHEDULE_INTERVAL
 from .const import STATUS_OUTAGE_NO_INFO
 from .const import STATUS_OUTAGE_WITH_INFO
 from .const import STATUS_POWER_ON
@@ -35,6 +42,10 @@ from .dtek import DtekClient
 from .dtek import DtekError
 from .dtek import parse_dtek_date
 from .dtek import resolve_outage
+from .schedule import DaySchedule
+from .schedule import kyiv_today
+from .schedule import parse_schedule
+from .schedule import ScheduleSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -248,14 +259,127 @@ class DtekOutageCoordinator(DataUpdateCoordinator[OutageData]):
 
     def _fire_event(self, event_type: str, extra: dict[str, Any]) -> None:
         """Fire a bus event carrying the address context."""
-        self.hass.bus.async_fire(
-            event_type,
-            {
-                "entry_id": self.entry_id,
-                "name": self.friendly_name,
-                "city": self.city,
-                "street": self.street,
-                "houses": self.houses,
-                **extra,
-            },
+        _fire_address_event(self, event_type, extra)
+
+
+def _fire_address_event(
+    coordinator: DtekOutageCoordinator | DtekScheduleCoordinator,
+    event_type: str,
+    extra: dict[str, Any],
+) -> None:
+    """Fire a bus event carrying the address context of a coordinator."""
+    coordinator.hass.bus.async_fire(
+        event_type,
+        {
+            "entry_id": coordinator.entry_id,
+            "name": coordinator.friendly_name,
+            "city": coordinator.city,
+            "street": coordinator.street,
+            "houses": coordinator.houses,
+            **extra,
+        },
+    )
+
+
+def _relative_day(day: date, today: date) -> str:
+    """Describe a schedule day relative to today."""
+    offset = (day - today).days
+    if offset == 0:
+        return SCHEDULE_DAY_TODAY
+    if offset == 1:
+        return SCHEDULE_DAY_TOMORROW
+    return SCHEDULE_DAY_LATER
+
+
+class DtekScheduleCoordinator(DataUpdateCoordinator[ScheduleSnapshot | None]):
+    """Polls the DTEK hourly outage schedule on a fixed interval."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        client: DtekClient,
+        *,
+        name: str,
+        city: str,
+        street: str,
+        houses: list[str],
+    ) -> None:
+        """Initialize the coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_{name}_schedule",
+            update_interval=SCHEDULE_INTERVAL,
         )
+        self.entry_id = entry_id
+        self.friendly_name = name
+        self.city = city
+        self.street = street
+        self.houses = houses
+        self._client = client
+
+    async def _async_update_data(self) -> ScheduleSnapshot:
+        """Fetch the schedule and report days that appeared or changed."""
+        try:
+            info = await self._client.async_get_info(self.city, self.street)
+        except DtekError as err:
+            raise UpdateFailed(str(err)) from err
+
+        snapshot = parse_schedule(info, self.houses)
+        if snapshot is None:
+            raise UpdateFailed("DTEK response carries no schedule.")
+
+        if self.data is not None:
+            self._detect_schedule_changes(self.data, snapshot)
+        return snapshot
+
+    def _detect_schedule_changes(
+        self, prev: ScheduleSnapshot, new: ScheduleSnapshot
+    ) -> None:
+        """Fire events for days whose schedule appeared or changed."""
+        today = kyiv_today()
+        for day in sorted(set(prev.days) | set(new.days)):
+            if day < today:
+                continue
+            old = prev.days.get(day)
+            current = new.days.get(day)
+            if current is None:
+                if old is not None and old.has_outages:
+                    self._fire_schedule_event(
+                        EVENT_SCHEDULE_CHANGED, DaySchedule(day), today, new, old
+                    )
+            elif old is None:
+                self._fire_schedule_event(EVENT_SCHEDULE_AVAILABLE, current, today, new)
+            elif old != current:
+                self._fire_schedule_event(
+                    EVENT_SCHEDULE_CHANGED, current, today, new, old
+                )
+
+    def _fire_schedule_event(
+        self,
+        event_type: str,
+        schedule: DaySchedule,
+        today: date,
+        snapshot: ScheduleSnapshot,
+        previous: DaySchedule | None = None,
+    ) -> None:
+        """Fire a schedule event describing one day."""
+        _LOGGER.info(
+            "%s: %s for %s: %s",
+            self.friendly_name,
+            event_type,
+            schedule.day.isoformat(),
+            "; ".join(schedule.summary.splitlines()) or "no outages",
+        )
+        extra: dict[str, Any] = {
+            "date": schedule.day.isoformat(),
+            "day": _relative_day(schedule.day, today),
+            "has_outages": schedule.has_outages,
+            "groups": schedule.groups_as_dicts(),
+            "summary": schedule.summary,
+            "updated": snapshot.updated,
+        }
+        if previous is not None:
+            extra["previous_summary"] = previous.summary
+        _fire_address_event(self, event_type, extra)

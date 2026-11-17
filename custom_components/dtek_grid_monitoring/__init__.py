@@ -27,14 +27,17 @@ from .const import CONF_NAME
 from .const import CONF_POWER_OFF_STATE
 from .const import CONF_RELAY_ENTITY
 from .const import CONF_RELAY_OFF_STATE
+from .const import CONF_SCHEDULE_MONITORING
 from .const import CONF_SOURCE_ENTITY
 from .const import CONF_STREET
 from .const import DEFAULT_INITIAL_INTERVAL
 from .const import DEFAULT_INTERVAL
 from .const import DEFAULT_POWER_OFF_STATE
 from .const import DEFAULT_RELAY_OFF_STATE
+from .const import DEFAULT_SCHEDULE_MONITORING
 from .const import RELAY_GRACE_PERIOD
 from .coordinator import DtekOutageCoordinator
+from .coordinator import DtekScheduleCoordinator
 from .dtek import DtekClient
 from .dtek import normalize_houses
 
@@ -50,6 +53,7 @@ class DtekRuntimeData:
     """Runtime objects stored on the config entry."""
 
     coordinator: DtekOutageCoordinator
+    schedule_coordinator: DtekScheduleCoordinator | None
     source_entity: str
     power_off_state: str
     session: aiohttp.ClientSession
@@ -79,6 +83,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: DtekConfigEntry) -> bool
         interval=options.get(CONF_INTERVAL, DEFAULT_INTERVAL),
     )
 
+    schedule_coordinator: DtekScheduleCoordinator | None = None
+    if options.get(CONF_SCHEDULE_MONITORING, DEFAULT_SCHEDULE_MONITORING):
+        schedule_coordinator = DtekScheduleCoordinator(
+            hass,
+            entry.entry_id,
+            client,
+            name=data[CONF_NAME],
+            city=data[CONF_CITY],
+            street=data[CONF_STREET],
+            houses=houses,
+        )
+
     source_entity = data[CONF_SOURCE_ENTITY]
     power_off_state = data.get(CONF_POWER_OFF_STATE, DEFAULT_POWER_OFF_STATE)
     relay_entity: str | None = options.get(CONF_RELAY_ENTITY) or None
@@ -86,6 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DtekConfigEntry) -> bool
 
     entry.runtime_data = DtekRuntimeData(
         coordinator=coordinator,
+        schedule_coordinator=schedule_coordinator,
         source_entity=source_entity,
         power_off_state=power_off_state,
         session=session,
@@ -93,6 +110,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: DtekConfigEntry) -> bool
     entry.async_on_unload(session.close)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    if schedule_coordinator is not None:
+        entry.async_create_background_task(
+            hass,
+            schedule_coordinator.async_refresh(),
+            f"{entry.entry_id}_schedule_first_refresh",
+        )
 
     cancel_pending: CALLBACK_TYPE | None = None
 

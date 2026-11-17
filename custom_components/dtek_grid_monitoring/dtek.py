@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from datetime import datetime
 from typing import Any
@@ -22,6 +23,8 @@ _CSRF_META_RE = re.compile(
     r'<meta\s+name="csrf-token"\s+content="([^"]+)"', re.IGNORECASE
 )
 _DTEK_DATE_RE = re.compile(r"^(\d{2}):(\d{2})\s+(\d{2})\.(\d{2})\.(\d{4})$")
+_STREETS_RE = re.compile(r"DisconSchedule\.streets\s*=\s*(?=\{)")
+_APOSTROPHES = str.maketrans(dict.fromkeys("’ʼ‘′`", "'"))
 
 
 class DtekError(Exception):
@@ -37,6 +40,45 @@ def parse_dtek_date(date_str: str | None) -> datetime | None:
         return None
     hours, minutes, day, month, year = match.groups()
     return datetime(int(year), int(month), int(day), int(hours), int(minutes))
+
+
+def parse_streets(html: str) -> dict[str, list[str]]:
+    """Extract the city to streets directory embedded in the shutdowns page."""
+    match = _STREETS_RE.search(html)
+    if not match:
+        return {}
+    try:
+        streets, _ = json.JSONDecoder().raw_decode(html, match.end())
+    except ValueError:
+        return {}
+    return streets if isinstance(streets, dict) else {}
+
+
+def _address_key(value: str) -> str:
+    """Reduce a name to a form ignoring apostrophe style, spacing and case."""
+    return " ".join(value.translate(_APOSTROPHES).split()).casefold()
+
+
+def _match_name(names: Any, value: str) -> str | None:
+    """Find the DTEK spelling of a name, preferring an exact match."""
+    if value in names:
+        return value
+    key = _address_key(value)
+    return next(
+        (n for n in names if isinstance(n, str) and _address_key(n) == key), None
+    )
+
+
+def resolve_address(
+    streets: dict[str, list[str]], city: str, street: str
+) -> tuple[str, str]:
+    """Return the city and street spelled exactly as DTEK lists them."""
+    dtek_city = _match_name(streets, city)
+    if dtek_city is None:
+        return city, street
+    names = streets[dtek_city]
+    dtek_street = _match_name(names, street) if isinstance(names, list) else None
+    return dtek_city, street if dtek_street is None else dtek_street
 
 
 def normalize_houses(house: str | None, houses: list[str] | None) -> list[str]:
@@ -145,8 +187,12 @@ class DtekClient:
         """Fetch outage info for a city/street."""
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT.total_seconds()):
-                csrf_token = await self._async_fetch_csrf()
-                return await self._async_post_get_home_num(csrf_token, city, street)
+                html = await self._async_fetch_page()
+                match = _CSRF_META_RE.search(html)
+                if not match:
+                    raise DtekError("CSRF token not found on the shutdowns page.")
+                city, street = resolve_address(parse_streets(html), city, street)
+                return await self._async_post_get_home_num(match.group(1), city, street)
         except DtekError:
             raise
         except aiohttp.ClientError as err:
@@ -154,16 +200,12 @@ class DtekClient:
         except TimeoutError as err:
             raise DtekError("Getting info timed out.") from err
 
-    async def _async_fetch_csrf(self) -> str:
-        """Load the shutdowns page and return its CSRF token."""
+    async def _async_fetch_page(self) -> str:
+        """Load the shutdowns page carrying the CSRF token and street list."""
         headers = {"User-Agent": USER_AGENT}
         async with self._session.get(self._base_url, headers=headers) as resp:
             resp.raise_for_status()
-            html = await resp.text()
-        match = _CSRF_META_RE.search(html)
-        if not match:
-            raise DtekError("CSRF token not found on the shutdowns page.")
-        return match.group(1)
+            return await resp.text()
 
     async def _async_post_get_home_num(
         self, csrf_token: str, city: str, street: str

@@ -7,14 +7,17 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import DtekOutageCoordinator
+from .coordinator import DtekScheduleCoordinator
 
 
-class DtekBaseEntity(CoordinatorEntity[DtekOutageCoordinator]):
+class DtekBaseEntity[CoordinatorT: DtekOutageCoordinator | DtekScheduleCoordinator](
+    CoordinatorEntity[CoordinatorT]
+):
     """Common base wiring device info and coordinator for all entities."""
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: DtekOutageCoordinator, key: str) -> None:
+    def __init__(self, coordinator: CoordinatorT, key: str) -> None:
         """Initialize the base entity."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry_id}_{key}"

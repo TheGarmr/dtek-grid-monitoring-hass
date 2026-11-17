@@ -13,7 +13,8 @@
           "source_entity": "Power source sensor",
           "power_off_state": "State meaning “no power”",
           "relay_entity": "Voltage relay (optional)",
-          "relay_off_state": "Relay state meaning “tripped”"
+          "relay_off_state": "Relay state meaning “tripped”",
+          "schedule_monitoring": "Monitor outage schedules"
         },
         "data_description": {
           "city": "As written on the DTEK site, e.g. “м. Одеса”.",
@@ -22,7 +23,8 @@
           "source_entity": "When this entity changes to the state below, DTEK monitoring begins; when it leaves that state, monitoring ends.",
           "power_off_state": "Usually “off” for a grid binary sensor.",
           "relay_entity": "If a voltage relay sits between the grid and the inverter, pick its switch. While it is in the state below, a lost-grid report from the source sensor is treated as a relay trip, not a DTEK outage. Clear to disable.",
-          "relay_off_state": "Usually “off” for a relay switch."
+          "relay_off_state": "Usually “off” for a relay switch.",
+          "schedule_monitoring": "Checks DTEK every 15 minutes, even while power is on, and fires events when the hourly outage schedule for a day appears or changes. Adds “Schedule today”, “Schedule tomorrow” and “Next scheduled outage” sensors."
         }
       }
     },
@@ -42,11 +44,13 @@
           "initial_interval": "Interval while DTEK has no info (minutes)",
           "interval": "Interval once DTEK has info (minutes)",
           "relay_entity": "Voltage relay (optional)",
-          "relay_off_state": "Relay state meaning “tripped”"
+          "relay_off_state": "Relay state meaning “tripped”",
+          "schedule_monitoring": "Monitor outage schedules"
         },
         "data_description": {
           "relay_entity": "If a voltage relay sits between the grid and the inverter, pick its switch. While it is in the state below, a lost-grid report from the source sensor is treated as a relay trip, not a DTEK outage. Clear to disable.",
-          "relay_off_state": "Usually “off” for a relay switch."
+          "relay_off_state": "Usually “off” for a relay switch.",
+          "schedule_monitoring": "Checks DTEK every 15 minutes, even while power is on, and fires events when the hourly outage schedule for a day appears or changes. Adds “Schedule today”, “Schedule tomorrow” and “Next scheduled outage” sensors."
         }
       }
     }
@@ -89,6 +93,25 @@
       },
       "last_checked": {
         "name": "Last checked"
+      },
+      "schedule_today": {
+        "name": "Schedule today",
+        "state": {
+          "scheduled": "Outages scheduled",
+          "no_outages": "No outages",
+          "not_published": "Not published"
+        }
+      },
+      "schedule_tomorrow": {
+        "name": "Schedule tomorrow",
+        "state": {
+          "scheduled": "Outages scheduled",
+          "no_outages": "No outages",
+          "not_published": "Not published"
+        }
+      },
+      "next_scheduled_outage": {
+        "name": "Next scheduled outage"
       }
     }
   }

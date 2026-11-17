@@ -4,14 +4,15 @@
 
 Monitor real power outages at a DTEK address, driven by a Home Assistant
 sensor. Polling starts only when your grid sensor reports that power is gone,
-and stops when it returns.
+and stops when it returns. Optionally follows the hourly outage schedule of the
+address and reports when it appears or changes.
 
 **This component sets up the following platforms:**
 
 | Platform        | Description                                            |
 | --------------- | ------------------------------------------------------ |
 | `binary_sensor` | On while an outage is being monitored.                 |
-| `sensor`        | Reason, type, start, expected restoration, timestamps. |
+| `sensor`        | Reason, type, start, expected restoration, timestamps, optional outage schedule. |
 
 ![example][exampleimg]
 

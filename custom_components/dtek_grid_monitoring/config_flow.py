@@ -28,6 +28,7 @@ from .const import CONF_NAME
 from .const import CONF_POWER_OFF_STATE
 from .const import CONF_RELAY_ENTITY
 from .const import CONF_RELAY_OFF_STATE
+from .const import CONF_SCHEDULE_MONITORING
 from .const import CONF_SOURCE_ENTITY
 from .const import CONF_STREET
 from .const import DEFAULT_BASE_URL
@@ -35,6 +36,7 @@ from .const import DEFAULT_INITIAL_INTERVAL
 from .const import DEFAULT_INTERVAL
 from .const import DEFAULT_POWER_OFF_STATE
 from .const import DEFAULT_RELAY_OFF_STATE
+from .const import DEFAULT_SCHEDULE_MONITORING
 from .const import DEFAULT_SOURCE_ENTITY
 from .const import DOMAIN
 from .dtek import DtekClient
@@ -75,6 +77,21 @@ def _relay_options(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _schedule_fields(defaults: dict[str, Any]) -> dict[Any, Any]:
+    """Build the schedule-monitoring toggle pre-filled with defaults."""
+    return {
+        vol.Required(
+            CONF_SCHEDULE_MONITORING,
+            default=defaults.get(CONF_SCHEDULE_MONITORING, DEFAULT_SCHEDULE_MONITORING),
+        ): bool,
+    }
+
+
+def _schedule_options(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Extract the schedule-monitoring option from submitted form data."""
+    return {CONF_SCHEDULE_MONITORING: bool(user_input[CONF_SCHEDULE_MONITORING])}
+
+
 def _user_schema(defaults: dict[str, Any]) -> vol.Schema:
     """Build the user-step schema pre-filled with defaults."""
     return vol.Schema(
@@ -101,6 +118,7 @@ def _user_schema(defaults: dict[str, Any]) -> vol.Schema:
                 default=defaults.get(CONF_POWER_OFF_STATE, DEFAULT_POWER_OFF_STATE),
             ): str,
             **_relay_fields(defaults),
+            **_schedule_fields(defaults),
         }
     )
 
@@ -146,7 +164,10 @@ class DtekConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_SOURCE_ENTITY: user_input[CONF_SOURCE_ENTITY],
                         CONF_POWER_OFF_STATE: user_input[CONF_POWER_OFF_STATE].strip(),
                     },
-                    options=_relay_options(user_input),
+                    options={
+                        **_relay_options(user_input),
+                        **_schedule_options(user_input),
+                    },
                 )
 
         return self.async_show_form(
@@ -188,6 +209,7 @@ class DtekOptionsFlow(OptionsFlow):
                     CONF_INITIAL_INTERVAL: int(user_input[CONF_INITIAL_INTERVAL]),
                     CONF_INTERVAL: int(user_input[CONF_INTERVAL]),
                     **_relay_options(user_input),
+                    **_schedule_options(user_input),
                 }
             )
 
@@ -208,6 +230,7 @@ class DtekOptionsFlow(OptionsFlow):
                     default=options.get(CONF_INTERVAL, DEFAULT_INTERVAL),
                 ): interval_selector,
                 **_relay_fields(options),
+                **_schedule_fields(options),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

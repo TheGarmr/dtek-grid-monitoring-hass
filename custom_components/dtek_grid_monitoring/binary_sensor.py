@@ -24,7 +24,9 @@ async def async_setup_entry(
     async_add_entities([DtekGridPowerBinarySensor(entry.runtime_data.coordinator)])
 
 
-class DtekGridPowerBinarySensor(DtekBaseEntity, BinarySensorEntity):
+class DtekGridPowerBinarySensor(
+    DtekBaseEntity[DtekOutageCoordinator], BinarySensorEntity
+):
     """Grid power presence: on when there is power, off during an outage."""
 
     _attr_translation_key = "grid_power"
